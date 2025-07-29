@@ -99,8 +99,9 @@ def message_handler(message):
 
 # === Launch Both Bot and Flask ===
 def run_bot():
-    print("Polling started...")
-    bot.infinity_polling()
+    print("Webhook started...")
+    bot.remove_webhook()
+    bot.set_webhook(url="https://your-railway-app-name.up.railway.app/webhook")
 
 def run_web():
     app.run(host='0.0.0.0', port=8080)
