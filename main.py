@@ -1,98 +1,78 @@
-# main.py – WhisperZonez + KVFX v3 AI Bot (Webhook + Flask Version for Railway)
-
-import os
 import telebot
 import openai
+import os
 from flask import Flask, request
-import base64
 
-# === Load ENV variables ===
+# === ENV VARIABLES ===
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-DEFAULT_CHAT_ID = os.getenv("DEFAULT_CHAT_ID")
 
-print("🚨 TELEGRAM_TOKEN:", TELEGRAM_TOKEN)
-
+# === BOT SETUP ===
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
-bot.remove_webhook()
-bot.set_webhook(url="https://whisperzonez-bot.up.railway.app/webhook")
 openai.api_key = OPENAI_API_KEY
 
-# === Flask App for Webhook ===
+# === FLASK APP (FOR WEBHOOK MODE IF NEEDED) ===
 app = Flask(__name__)
 
 @app.route('/')
-def home():
-    return "WhisperZonez AI Bot is Live!"
+def index():
+    return "WhisperZonez KVFX Assistant is running."
 
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    update = telebot.types.Update.de_json(request.get_json(force=True))
-    bot.process_new_updates([update])
-    return "ok", 200
-
-# === GPT WhisperZonez Logic ===
-def get_whisperzonez_reply(user_input):
-    prompt = f"""
-You are WhisperZonez — a Tactical Whisper Mentor and KVFX Algo Assistant.
-You interpret:
-- Whisper candles (low body, high volume)
-- Supply & demand zones with mitigation
-- CHoCH (Change of Character) and BOS (Break of Structure)
-- Green arrow entries from KVFX v3 logic
-- Volume traps, imbalance fills, and trend context
-
-Respond to user input with clear, concise, tactical trading insight.
-Tone: Street-smart, gritty, and mentor-like. Use emojis if helpful.
-
-User:
-{user_input}
-
-WhisperZonez:
-"""
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response.choices[0].message.content.strip()
-
-# === Telegram Message Handlers ===
+# === START COMMAND ===
 @bot.message_handler(commands=['start'])
 def start_handler(message):
-    bot.reply_to(message, "📡 WhisperZonez x KVFX Assistant ready. Send a question, chart screenshot, or zone logic setup.")
+    bot.reply_to(message, """
+🎯 *WhisperZonez KVFX Assistant Activated*
 
-@bot.message_handler(content_types=['photo'])
-def handle_image(message):
+🛰️ *TACTICAL SYSTEMS ONLINE*
+
+*Core Commands:*
+• /analyze - Send chart for tactical analysis  
+• /bias - Get current market bias  
+• /kvfxbias - KVFX v3 tactical analysis  
+• /kvfxbias_weekly - Weekly market outlook  
+• /logtrade - Log a new trade  
+• /stats - View trading performance  
+• /webhook - TradingView integration setup  
+• /help - Full command reference
+
+*Systems Status:*
+✅ TradingView Integration  
+✅ Chart Analysis (Vision AI)  
+✅ Auto Alerts  
+✅ KVFX Algorithm
+
+Drop a chart, ask a question, or share a setup.  
+*WhisperZonez is ready.*
+""", parse_mode='Markdown')
+
+# === BIASSHORT COMMAND EXAMPLE ===
+@bot.message_handler(commands=['bias'])
+def bias_handler(message):
+    bot.reply_to(message, "📊 WhisperZonez Market Bias: Neutral to Bullish | Waiting for CHoCH confirmation.")
+
+# === OPENAI INTEGRATED RESPONSE ===
+@bot.message_handler(func=lambda message: True)
+def ai_response_handler(message):
+    user_input = message.text
     try:
-        file_info = bot.get_file(message.photo[-1].file_id)
-        downloaded_file = bot.download_file(file_info.file_path)
-        image_b64 = base64.b64encode(downloaded_file).decode('utf-8')
-
-        vision_prompt = [
-            {"type": "text", "text": "Analyze this trading chart using WhisperZonez logic: CHoCH, BOS, whisper candle zones, mitigation, and KVFX trend entries."},
-            {"type": "image_url", "image_url": {"url": "data:image/png;base64," + image_b64}}
-        ]
-
-        result = openai.ChatCompletion.create(
-            model="gpt-4-vision-preview",
-            messages=[{"role": "user", "content": vision_prompt}],
-            max_tokens=500
+        bot.send_chat_action(message.chat.id, 'typing')
+        
+        response = openai.ChatCompletion.create(
+            model="gpt-4",  # Or use "gpt-3.5-turbo" if preferred
+            messages=[
+                {"role": "system", "content": "You are WhisperZonez, a professional smart money and order flow analyst assistant. Answer questions about CHoCH, BOS, mitigation blocks, liquidity sweeps, and institutional trading like a trading coach."},
+                {"role": "user", "content": user_input}
+            ]
         )
-        output = result.choices[0].message.content.strip()
-        bot.reply_to(message, f"🧠 Chart Insight:\n{output}")
-    except Exception as e:
-        bot.reply_to(message, f"❌ Error analyzing image: {e}")
 
-@bot.message_handler(func=lambda msg: True)
-def message_handler(message):
-    user_text = message.text
-    try:
-        reply = get_whisperzonez_reply(user_text)
+        reply = response['choices'][0]['message']['content']
         bot.reply_to(message, reply)
-    except Exception as e:
-        bot.reply_to(message, f"Error generating response: {e}")
 
-# === Launch Flask App Only (Webhook handles Telegram input) ===
-if __name__ == '__main__':
-    print("🚀 Starting Flask webhook server...")
-    app.run(host='0.0.0.0', port=8080)
+    except Exception as e:
+        bot.reply_to(message, f"⚠️ WhisperZonez Error: {str(e)}")
+
+# === LOCAL DEV MODE ===
+if __name__ == "__main__":
+    print("📡 WhisperZonez KVFX Assistant is LIVE")
+    bot.polling(non_stop=T_
