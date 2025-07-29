@@ -16,7 +16,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 DEFAULT_CHAT_ID = os.getenv("DEFAULT_CHAT_ID")
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
-bot.remove_webhook()  # Clear old webhook if any
+bot.remove_webhook()
 bot.set_webhook(url="https://whisperzonez-bot.up.railway.app/webhook")
 openai.api_key = OPENAI_API_KEY
 
@@ -109,5 +109,5 @@ def run_web():
     app.run(host='0.0.0.0', port=8080)
 
 if __name__ == '__main__':
-    # Only run Flask server — webhook handles messages
+    print("Starting Flask server...")
     app.run(host='0.0.0.0', port=8080)
