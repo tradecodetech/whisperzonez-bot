@@ -9,6 +9,9 @@ import base64
 
 # === Load ENV variables ===
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+print("🚨 TELEGRAM_TOKEN:", TELEGRAM_TOKEN)
+if TELEGRAM_TOKEN is None:
+    raise Exception("❌ TELEGRAM_TOKEN is missing. Check Railway environment variables.")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 DEFAULT_CHAT_ID = os.getenv("DEFAULT_CHAT_ID")
 
