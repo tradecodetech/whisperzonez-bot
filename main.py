@@ -1,67 +1,87 @@
+import os
 import telebot
 import openai
-import os
-from flask import Flask, request
+from flask import Flask, request, jsonify
 
 # === ENV VARIABLES ===
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")  # Optional: your personal Telegram ID
 
-# === BOT SETUP ===
+# === INITIALIZATION ===
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 openai.api_key = OPENAI_API_KEY
-
-# === FLASK APP (FOR WEBHOOK MODE IF NEEDED) ===
 app = Flask(__name__)
 
+# === ROOT HEALTH CHECK ===
 @app.route('/')
-def index():
-    return "WhisperZonez KVFX Assistant is running."
+def home():
+    return "WhisperZonez Assistant: ONLINE"
+
+# === TRADINGVIEW WEBHOOK RECEIVER ===
+@app.route('/webhook', methods=['POST'])
+def webhook():
+    data = request.get_json()
+
+    try:
+        symbol = data.get("ticker", "Unknown Symbol")
+        alert = data.get("alert", "No alert text")
+        timeframe = data.get("timeframe", "N/A")
+
+        message = f"""
+📡 *TradingView Webhook Alert Received*  
+🔹 Symbol: `{symbol}`  
+🕒 Timeframe: `{timeframe}`  
+📢 Alert: `{alert}`  
+"""
+
+        # Send to admin or a channel
+        if ADMIN_CHAT_ID:
+            bot.send_message(ADMIN_CHAT_ID, message, parse_mode='Markdown')
+        else:
+            print("No ADMIN_CHAT_ID set.")
+
+        return jsonify({"status": "ok"}), 200
+
+    except Exception as e:
+        print(f"Webhook error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # === START COMMAND ===
 @bot.message_handler(commands=['start'])
 def start_handler(message):
     bot.reply_to(message, """
-🎯 *WhisperZonez KVFX Assistant Activated*
+🚀 *WhisperZonez KVFX Assistant Activated*
 
-🛰️ *TACTICAL SYSTEMS ONLINE*
+🎯 Tactical Systems Online
 
-*Core Commands:*
-• /analyze - Send chart for tactical analysis  
-• /bias - Get current market bias  
-• /kvfxbias - KVFX v3 tactical analysis  
-• /kvfxbias_weekly - Weekly market outlook  
-• /logtrade - Log a new trade  
-• /stats - View trading performance  
-• /webhook - TradingView integration setup  
-• /help - Full command reference
+Commands:
+/analyze - Send chart for tactical analysis  
+/bias - Get market bias  
+/kvfxbias - KVFX tactical analysis  
+/logtrade - Log a trade  
+/webhook - Setup TradingView alerts  
+/help - Full command reference
 
-*Systems Status:*
-✅ TradingView Integration  
-✅ Chart Analysis (Vision AI)  
-✅ Auto Alerts  
-✅ KVFX Algorithm
-
-Drop a chart, ask a question, or share a setup.  
-*WhisperZonez is ready.*
+✅ Chart AI | ✅ Alerts | ✅ KVFX Algo Ready
 """, parse_mode='Markdown')
 
-# === BIASSHORT COMMAND EXAMPLE ===
+# === MARKET BIAS COMMAND ===
 @bot.message_handler(commands=['bias'])
 def bias_handler(message):
-    bot.reply_to(message, "📊 WhisperZonez Market Bias: Neutral to Bullish | Waiting for CHoCH confirmation.")
+    bot.reply_to(message, "📈 Current Bias: Range-bound with bullish undertone. Await CHoCH on H1.")
 
-# === OPENAI INTEGRATED RESPONSE ===
-@bot.message_handler(func=lambda message: True)
-def ai_response_handler(message):
+# === GPT AI RESPONSE LOGIC ===
+@bot.message_handler(func=lambda msg: True)
+def whisper_ai_handler(message):
     user_input = message.text
     try:
         bot.send_chat_action(message.chat.id, 'typing')
-        
+
         response = openai.ChatCompletion.create(
-            model="gpt-4",  # Or use "gpt-3.5-turbo" if preferred
+            model="gpt-4",
             messages=[
-                {"role": "system", "content": "You are WhisperZonez, a professional smart money and order flow analyst assistant. Answer questions about CHoCH, BOS, mitigation blocks, liquidity sweeps, and institutional trading like a trading coach."},
+                {"role": "system", "content": "You are WhisperZonez, a smart money trader assistant who explains CHoCH, BOS, liquidity sweeps, mitigation, etc., like a seasoned order flow coach."},
                 {"role": "user", "content": user_input}
             ]
         )
@@ -70,9 +90,9 @@ def ai_response_handler(message):
         bot.reply_to(message, reply)
 
     except Exception as e:
-        bot.reply_to(message, f"⚠️ WhisperZonez Error: {str(e)}")
+        bot.reply_to(message, f"⚠️ Error: {str(e)}")
 
-# === LOCAL DEV MODE ===
+# === LOCAL DEV ===
 if __name__ == "__main__":
-    print("📡 WhisperZonez KVFX Assistant is LIVE")
-    bot.polling(non_stop=T_
+    print("🚦 WhisperZonez Assistant Running")
+    bot.polling(non_stop=True)
