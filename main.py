@@ -109,5 +109,5 @@ def run_web():
     app.run(host='0.0.0.0', port=8080)
 
 if __name__ == '__main__':
-    threading.Thread(target=run_web).start()
-    threading.Thread(target=run_bot).start()
+    # Only run Flask server — webhook handles messages
+    app.run(host='0.0.0.0', port=8080)
