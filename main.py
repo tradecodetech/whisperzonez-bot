@@ -1,26 +1,24 @@
-# main.py - WhisperZonez + KVFX v3 Telegram AI Bot (for Railway Hosting)
+# main.py – WhisperZonez + KVFX v3 AI Bot (Webhook + Flask Version for Railway)
 
 import os
 import telebot
 import openai
 from flask import Flask, request
-import threading
 import base64
 
 # === Load ENV variables ===
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
-print("🚨 TELEGRAM_TOKEN:", TELEGRAM_TOKEN)
-if TELEGRAM_TOKEN is None:
-    raise Exception("❌ TELEGRAM_TOKEN is missing. Check Railway environment variables.")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 DEFAULT_CHAT_ID = os.getenv("DEFAULT_CHAT_ID")
+
+print("🚨 TELEGRAM_TOKEN:", TELEGRAM_TOKEN)
 
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 bot.remove_webhook()
 bot.set_webhook(url="https://whisperzonez-bot.up.railway.app/webhook")
 openai.api_key = OPENAI_API_KEY
 
-# === Flask App for Webhook Support ===
+# === Flask App for Webhook ===
 app = Flask(__name__)
 
 @app.route('/')
@@ -29,16 +27,11 @@ def home():
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    data = request.json
-    if data:
-        alert_message = data.get("message", "KVFX Signal Alert")
-        chat_id = DEFAULT_CHAT_ID
-        if chat_id:
-            bot.send_message(chat_id, f"📈 {alert_message}")
-        return "ok", 200
-    return "no data", 400
+    update = telebot.types.Update.de_json(request.get_json(force=True))
+    bot.process_new_updates([update])
+    return "ok", 200
 
-# === AI Whisper + KVFX Response Generator ===
+# === GPT WhisperZonez Logic ===
 def get_whisperzonez_reply(user_input):
     prompt = f"""
 You are WhisperZonez — a Tactical Whisper Mentor and KVFX Algo Assistant.
@@ -63,7 +56,7 @@ WhisperZonez:
     )
     return response.choices[0].message.content.strip()
 
-# === Telegram Commands & Handlers ===
+# === Telegram Message Handlers ===
 @bot.message_handler(commands=['start'])
 def start_handler(message):
     bot.reply_to(message, "📡 WhisperZonez x KVFX Assistant ready. Send a question, chart screenshot, or zone logic setup.")
@@ -99,15 +92,7 @@ def message_handler(message):
     except Exception as e:
         bot.reply_to(message, f"Error generating response: {e}")
 
-# === Launch Both Bot and Flask ===
-def run_bot():
-    print("Webhook started...")
-    bot.remove_webhook()
-    bot.set_webhook(url="https://your-railway-app-name.up.railway.app/webhook")
-
-def run_web():
-    app.run(host='0.0.0.0', port=8080)
-
+# === Launch Flask App Only (Webhook handles Telegram input) ===
 if __name__ == '__main__':
-    print("Starting Flask server...")
+    print("🚀 Starting Flask webhook server...")
     app.run(host='0.0.0.0', port=8080)
