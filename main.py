@@ -1,98 +1,72 @@
 import os
 import telebot
 import openai
-from flask import Flask, request, jsonify
+from flask import Flask, request
 
 # === ENV VARIABLES ===
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-ADMIN_CHAT_ID = os.getenv("ADMIN_CHAT_ID")  # Optional: your personal Telegram ID
+WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # e.g., https://whisperzonez-bot.up.railway.app
 
 # === INITIALIZATION ===
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
 openai.api_key = OPENAI_API_KEY
 app = Flask(__name__)
 
-# === ROOT HEALTH CHECK ===
-@app.route('/')
-def home():
-    return "WhisperZonez Assistant: ONLINE"
+# === HOME ROUTE (health check) ===
+@app.route("/", methods=["GET"])
+def index():
+    return "🚦 WhisperZonez Bot is running!"
 
-# === TRADINGVIEW WEBHOOK RECEIVER ===
-@app.route('/webhook', methods=['POST'])
-def webhook():
-    data = request.get_json()
-
-    try:
-        symbol = data.get("ticker", "Unknown Symbol")
-        alert = data.get("alert", "No alert text")
-        timeframe = data.get("timeframe", "N/A")
-
-        message = f"""
-📡 *TradingView Webhook Alert Received*  
-🔹 Symbol: `{symbol}`  
-🕒 Timeframe: `{timeframe}`  
-📢 Alert: `{alert}`  
-"""
-
-        # Send to admin or a channel
-        if ADMIN_CHAT_ID:
-            bot.send_message(ADMIN_CHAT_ID, message, parse_mode='Markdown')
-        else:
-            print("No ADMIN_CHAT_ID set.")
-
-        return jsonify({"status": "ok"}), 200
-
-    except Exception as e:
-        print(f"Webhook error: {e}")
-        return jsonify({"status": "error", "message": str(e)}), 500
+# === TELEGRAM WEBHOOK ENDPOINT ===
+@app.route(f"/{TELEGRAM_TOKEN}", methods=["POST"])
+def telegram_webhook():
+    json_str = request.get_data().decode("UTF-8")
+    update = telebot.types.Update.de_json(json_str)
+    bot.process_new_updates([update])
+    return "!", 200
 
 # === START COMMAND ===
 @bot.message_handler(commands=['start'])
-def start_handler(message):
-    bot.reply_to(message, """
-🚀 *WhisperZonez KVFX Assistant Activated*
+def handle_start(message):
+    bot.send_message(message.chat.id, "🚀 WhisperZonez KVFX Assistant is Online!")
 
-🎯 Tactical Systems Online
-
-Commands:
-/analyze - Send chart for tactical analysis  
-/bias - Get market bias  
-/kvfxbias - KVFX tactical analysis  
-/logtrade - Log a trade  
-/webhook - Setup TradingView alerts  
-/help - Full command reference
-
-✅ Chart AI | ✅ Alerts | ✅ KVFX Algo Ready
-""", parse_mode='Markdown')
-
-# === MARKET BIAS COMMAND ===
+# === BIAS COMMAND ===
 @bot.message_handler(commands=['bias'])
-def bias_handler(message):
-    bot.reply_to(message, "📈 Current Bias: Range-bound with bullish undertone. Await CHoCH on H1.")
+def handle_bias(message):
+    bot.send_message(message.chat.id, "📈 Bias: Range-bound with bullish undertone. Await CHoCH on H1.")
 
-# === GPT AI RESPONSE LOGIC ===
-@bot.message_handler(func=lambda msg: True)
-def whisper_ai_handler(message):
-    user_input = message.text
+# === ALL OTHER MESSAGES — GPT REPLY ===
+@bot.message_handler(func=lambda message: True)
+def handle_all(message):
     try:
+        user_input = message.text
         bot.send_chat_action(message.chat.id, 'typing')
 
         response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "You are WhisperZonez, a smart money trader assistant who explains CHoCH, BOS, liquidity sweeps, mitigation, etc., like a seasoned order flow coach."},
+                {"role": "system", "content": "You are WhisperZonez, a smart money trading assistant."},
                 {"role": "user", "content": user_input}
             ]
         )
 
-        reply = response['choices'][0]['message']['content']
-        bot.reply_to(message, reply)
+        bot.reply_to(message, response.choices[0].message.content)
 
     except Exception as e:
         bot.reply_to(message, f"⚠️ Error: {str(e)}")
 
-# === LOCAL DEV ===
+# === SET TELEGRAM WEBHOOK ===
+def set_webhook():
+    bot.remove_webhook()
+    webhook_url = f"{WEBHOOK_URL}/{TELEGRAM_TOKEN}"
+    success = bot.set_webhook(url=webhook_url)
+    if success:
+        print("✅ Webhook set successfully!")
+    else:
+        print("❌ Failed to set webhook.")
+
+# === START SERVER ===
 if __name__ == "__main__":
-    print("🚦 WhisperZonez Assistant Running")
-    bot.polling(non_stop=True)
+    set_webhook()
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
