@@ -2,18 +2,30 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
-    // Simple auth
-    const token = url.searchParams.get("token");
+    // --- DEBUG HEALTH (no token required) ---
+    if (url.pathname === "/healthz") {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          hasSecret: Boolean(env.WEBHOOK_TOKEN),
+          secretLen: (env.WEBHOOK_TOKEN || "").length
+        }),
+        { headers: { "content-type": "application/json" } }
+      );
+    }
+
+    // --- Token check for protected routes ---
+    const token = url.searchParams.get("token") || "";
     if (!env.WEBHOOK_TOKEN || token !== env.WEBHOOK_TOKEN) {
+      console.log("Bad token", {
+        receivedLen: token.length,
+        envLen: (env.WEBHOOK_TOKEN || "").length
+      });
       return new Response("Bad token", { status: 401 });
     }
 
-    // Health check
-    if (url.pathname === "/healthz") {
-      return new Response(JSON.stringify({ ok: true }), {
-        headers: { "content-type": "application/json" },
-      });
-    }
+    // ... keep your existing /kvfx/webhook route below ...
+
 
     // TradingView → Telegram
     if (url.pathname === "/kvfx/webhook" && request.method === "POST") {
@@ -51,3 +63,4 @@ export default {
     return new Response("Not found", { status: 404 });
   }
 }
+
